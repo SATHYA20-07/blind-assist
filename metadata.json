@@ -1,0 +1,6 @@
+{
+  "name": "AI Smart Vision Assistant",
+  "description": "An AI-powered smart vision assistant for the blind and visually impaired, featuring real-time scene description, object & obstacle detection, face registration & recognition, currency counting, text reader OCR, and GPS navigation.",
+  "requestFramePermissions": ["camera", "geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
