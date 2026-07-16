@@ -13,6 +13,7 @@ interface VoiceControllerProps {
   onTriggerCapture: () => void;
   onTriggerSOS: () => void;
   onTriggerLocationRead: () => void;
+  appLanguage?: string;
 }
 
 export default function VoiceController({
@@ -20,6 +21,7 @@ export default function VoiceController({
   onTriggerCapture,
   onTriggerSOS,
   onTriggerLocationRead,
+  appLanguage,
 }: VoiceControllerProps) {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
@@ -39,16 +41,30 @@ export default function VoiceController({
     const rec = new SpeechRecognition();
     rec.continuous = false;
     rec.interimResults = false;
-    rec.lang = 'en-US';
+
+    // Set appropriate locale for speech-to-text
+    let langCode = 'en-US';
+    if (appLanguage === 'Tamil') langCode = 'ta-IN';
+    else if (appLanguage === 'Hindi') langCode = 'hi-IN';
+    else if (appLanguage === 'Malayalam') langCode = 'ml-IN';
+    else if (appLanguage === 'Telugu') langCode = 'te-IN';
+    else if (appLanguage === 'Kannada') langCode = 'kn-IN';
+    rec.lang = langCode;
 
     rec.onstart = () => {
       setIsListening(true);
-      setTranscript('Listening for command...');
+      let listMsg = 'Listening for command...';
+      if (appLanguage === 'Tamil') listMsg = 'கட்டளைக்காகக் காத்திருக்கிறது...';
+      if (appLanguage === 'Hindi') listMsg = 'आदेश की प्रतीक्षा की जा रही है...';
+      if (appLanguage === 'Malayalam') listMsg = 'കല്പനയ്ക്കായി കാത്തിരിക്കുന്നു...';
+      if (appLanguage === 'Telugu') listMsg = 'ఆజ్ఞ కోసం వేచి ఉంది...';
+      if (appLanguage === 'Kannada') listMsg = 'ಆಜ್ಞೆಗಾಗಿ ಕಾಯಲಾಗುತ್ತಿದೆ...';
+      setTranscript(listMsg);
     };
 
     rec.onresult = (event: any) => {
       const resultText = event.results[0][0].transcript.toLowerCase().trim();
-      setTranscript(`Received: "${resultText}"`);
+      setTranscript(appLanguage === 'Tamil' ? `பெறப்பட்டது: "${resultText}"` : appLanguage === 'Hindi' ? `प्राप्त हुआ: "${resultText}"` : `Received: "${resultText}"`);
       handleCommand(resultText);
     };
 
@@ -58,7 +74,7 @@ export default function VoiceController({
       if (event.error === 'not-allowed') {
         speech.speak('Microphone access denied. Please enable mic permissions for voice control.');
       } else {
-        speech.speak('Did not catch that. Please click the microphone button and try again.');
+        speech.speak(appLanguage === 'Tamil' ? 'மீண்டும் முயற்சிக்கவும்.' : appLanguage === 'Hindi' ? 'कृपया फिर से प्रयास करें।' : 'Did not catch that. Please try again.');
       }
     };
 
@@ -67,7 +83,13 @@ export default function VoiceController({
     };
 
     recognitionRef.current = rec;
-  }, []);
+
+    return () => {
+      try {
+        rec.abort();
+      } catch (e) {}
+    };
+  }, [appLanguage]);
 
   const startListening = () => {
     if (!isSupported) {

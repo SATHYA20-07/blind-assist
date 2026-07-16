@@ -47,7 +47,7 @@ app.get("/api/health", (req, res) => {
 // API endpoint for smart vision analysis
 app.post("/api/analyze", async (req, res) => {
   try {
-    const { image, mode, faces, translationTarget } = req.body;
+    const { image, mode, faces, translationTarget, appLanguage } = req.body;
 
     if (!image) {
       res.status(400).json({ error: "Missing image data" });
@@ -327,6 +327,12 @@ app.post("/api/analyze", async (req, res) => {
       ...extraParts,
       { text: promptText }
     ];
+
+    // Inject critical multilingual target instruction if specified
+    const targetLang = appLanguage || translationTarget || "English";
+    if (targetLang && targetLang !== "English") {
+      systemInstruction += `\n\nCRITICAL MULTILINGUAL MANDATE: The user's preferred spoken and written language is ${targetLang}. You MUST translate all verbal response strings inside the JSON fields (including description paragraphs, lists, tags, obstacle labels, color names, descriptive sentences, names, notes, directions, active ingredients, warnings, and instructions) directly into ${targetLang} (using native ${targetLang} script or readable phonetic transliteration, or both). The JSON structure and keys themselves must remain exactly as defined in the response schema, but the text values inside must be in ${targetLang}.`;
+    }
 
     // Call the Gemini API using gemini-3.5-flash as recommended
     const response: GenerateContentResponse = await ai.models.generateContent({

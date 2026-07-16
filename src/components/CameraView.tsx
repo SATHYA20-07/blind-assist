@@ -13,6 +13,7 @@ interface CameraViewProps {
   onAnalysisResult: (result: UnifiedAnalysisResult) => void;
   registeredFaces: any[];
   translationTarget: string;
+  appLanguage?: string;
 }
 
 export default function CameraView({
@@ -20,6 +21,7 @@ export default function CameraView({
   onAnalysisResult,
   registeredFaces,
   translationTarget,
+  appLanguage,
 }: CameraViewProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -142,6 +144,58 @@ export default function CameraView({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [stream, capturedImage, currentMode, registeredFaces, translationTarget]);
 
+  const [isAutoScanActive, setIsAutoScanActive] = useState(false);
+
+  // Automatically turn off auto-scan if we switch out of object or obstacle modes
+  useEffect(() => {
+    if (currentMode !== 'object' && currentMode !== 'obstacle') {
+      setIsAutoScanActive(false);
+    }
+  }, [currentMode]);
+
+  const isAnalyzingRef = useRef(isAnalyzing);
+  const capturedImageRef = useRef(capturedImage);
+  const streamRef = useRef(stream);
+  const currentModeRef = useRef(currentMode);
+  const registeredFacesRef = useRef(registeredFaces);
+  const translationTargetRef = useRef(translationTarget);
+
+  useEffect(() => {
+    isAnalyzingRef.current = isAnalyzing;
+    capturedImageRef.current = capturedImage;
+    streamRef.current = stream;
+    currentModeRef.current = currentMode;
+    registeredFacesRef.current = registeredFaces;
+    translationTargetRef.current = translationTarget;
+  }, [isAnalyzing, capturedImage, stream, currentMode, registeredFaces, translationTarget]);
+
+  // Auto scan interval implementation
+  useEffect(() => {
+    if (!isAutoScanActive) return;
+
+    const intervalId = setInterval(() => {
+      const mode = currentModeRef.current;
+      if (mode !== 'object' && mode !== 'obstacle') return;
+      if (isAnalyzingRef.current) return;
+      if (capturedImageRef.current) return;
+      if (!streamRef.current || !videoRef.current) return;
+
+      const video = videoRef.current;
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const base64Image = canvas.toDataURL('image/jpeg', 0.85);
+        // Call the backend directly with isAuto=true to keep it silent and not freeze the video frame
+        sendToBackend(base64Image, true);
+      }
+    }, 5000);
+
+    return () => clearInterval(intervalId);
+  }, [isAutoScanActive]);
+
   // Switch between devices
   const handleSwitchCamera = () => {
     if (devices.length <= 1) return;
@@ -154,10 +208,12 @@ export default function CameraView({
   };
 
   // Main API post action
-  const sendToBackend = async (base64Image: string) => {
+  const sendToBackend = async (base64Image: string, isAuto = false) => {
     setIsAnalyzing(true);
     setOverlays([]);
-    speech.speak('Analyzing image... Please wait.');
+    if (!isAuto) {
+      speech.speak('Analyzing image... Please wait.');
+    }
 
     try {
       const response = await fetch('/api/analyze', {
@@ -170,6 +226,7 @@ export default function CameraView({
           mode: currentMode,
           faces: registeredFaces,
           translationTarget: currentMode === 'ocr' ? translationTarget : undefined,
+          appLanguage: appLanguage,
         }),
       });
 
@@ -184,7 +241,9 @@ export default function CameraView({
       speakResultSummary(result);
     } catch (err: any) {
       console.error(err);
-      speech.speak('An error occurred during analysis: ' + err.message);
+      if (!isAuto) {
+        speech.speak('An error occurred during analysis: ' + err.message);
+      }
       onAnalysisResult({
         mode: currentMode,
         timestamp: new Date().toISOString(),
@@ -496,6 +555,29 @@ export default function CameraView({
             </div>
           ))}
         </div>
+
+        {/* Continuous Auto-Scan Toggle overlay (visible only in object and obstacle mode) */}
+        {(currentMode === 'object' || currentMode === 'obstacle') && (
+          <div className="absolute top-4 left-4 z-20 flex items-center gap-2">
+            <button
+              id="toggle-auto-scan-btn"
+              type="button"
+              onClick={() => {
+                const nextVal = !isAutoScanActive;
+                setIsAutoScanActive(nextVal);
+                speech.speak(nextVal ? "Continuous auto scan activated. Scanning every five seconds." : "Continuous auto scan deactivated.");
+              }}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all shadow-lg cursor-pointer ${
+                isAutoScanActive
+                  ? 'bg-emerald-500 text-zinc-950 hover:bg-emerald-400 border border-emerald-600 font-extrabold animate-pulse'
+                  : 'bg-zinc-900/95 text-zinc-200 hover:bg-zinc-800/95 border border-zinc-750 backdrop-blur-md'
+              }`}
+            >
+              <RefreshCw size={13} className={isAutoScanActive ? 'animate-spin' : 'text-emerald-400'} />
+              <span>{isAutoScanActive ? 'Auto-Scan Active (5s)' : 'Enable Auto-Scan'}</span>
+            </button>
+          </div>
+        )}
 
         {/* Loading Overlay */}
         {isAnalyzing && (

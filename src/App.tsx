@@ -36,6 +36,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'scan' | 'nav' | 'sos' | 'faces' | 'settings'>('scan');
   const [currentMode, setCurrentMode] = useState<AssistantMode>('scene');
   const [translationTarget, setTranslationTarget] = useState('Spanish');
+  const [appLanguage, setAppLanguage] = useState<'English' | 'Tamil' | 'Hindi' | 'Malayalam' | 'Telugu' | 'Kannada'>('English');
   const [lastResult, setLastResult] = useState<UnifiedAnalysisResult | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [registeredFaces, setRegisteredFaces] = useState<FaceProfile[]>([]);
@@ -149,7 +150,36 @@ export default function App() {
             </div>
           </div>
 
-          {/* Accessibility tabs switcher */}
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            {/* Global Multilingual Selector */}
+            <div className="flex items-center gap-2 bg-zinc-950 border border-zinc-800 rounded-2xl px-3 py-2 text-zinc-300">
+              <Languages size={13} className="text-emerald-400" />
+              <select
+                id="global-language-select"
+                value={appLanguage}
+                onChange={(e) => {
+                  const val = e.target.value as any;
+                  setAppLanguage(val);
+                  let speakPhrase = `Language set to ${val}.`;
+                  if (val === 'Tamil') speakPhrase = 'மொழி தமிழ் என அமைக்கப்பட்டுள்ளது.';
+                  if (val === 'Hindi') speakPhrase = 'भाषा हिंदी सेट की गई है।';
+                  if (val === 'Malayalam') speakPhrase = 'ഭാഷ മലയാളമായി സജ്ജീകരിച്ചിരിക്കുന്നു.';
+                  if (val === 'Telugu') speakPhrase = 'భాష తెలుగుగా అమర్చబడింది.';
+                  if (val === 'Kannada') speakPhrase = 'ಭಾಷೆಯನ್ನು ಕನ್ನಡಕ್ಕೆ ಹೊಂದಿಸಲಾಗಿದೆ.';
+                  speech.speak(speakPhrase);
+                }}
+                className="bg-transparent text-xs font-bold font-sans text-zinc-200 focus:outline-none cursor-pointer pr-1"
+              >
+                <option value="English" className="bg-zinc-950 text-zinc-200">English</option>
+                <option value="Tamil" className="bg-zinc-950 text-zinc-200">தமிழ் (Tamil)</option>
+                <option value="Hindi" className="bg-zinc-950 text-zinc-200">हिन्दी (Hindi)</option>
+                <option value="Malayalam" className="bg-zinc-950 text-zinc-200">മലയാളം (Malayalam)</option>
+                <option value="Telugu" className="bg-zinc-950 text-zinc-200">తెలుగు (Telugu)</option>
+                <option value="Kannada" className="bg-zinc-950 text-zinc-200">ಕನ್ನಡ (Kannada)</option>
+              </select>
+            </div>
+
+            {/* Accessibility tabs switcher */}
           <nav className="flex bg-zinc-950 p-1.5 rounded-2xl border border-zinc-800">
             {[
               { id: 'scan', label: 'Scanner', icon: Eye },
@@ -178,6 +208,7 @@ export default function App() {
               );
             })}
           </nav>
+          </div>
         </div>
       </header>
 
@@ -254,6 +285,7 @@ export default function App() {
                   onAnalysisResult={handleAnalysisResult}
                   registeredFaces={registeredFaces}
                   translationTarget={translationTarget}
+                  appLanguage={appLanguage}
                 />
               </div>
 
@@ -268,12 +300,13 @@ export default function App() {
                   setActiveSOS(true);
                 }}
                 onTriggerLocationRead={speakLocationDetails}
+                appLanguage={appLanguage}
               />
             </>
           )}
 
           {activeTab === 'nav' && (
-            <NavigationPanel onLocationUpdate={(info) => setCurrentLocation(info)} />
+            <NavigationPanel onLocationUpdate={(info) => setCurrentLocation(info)} appLanguage={appLanguage} />
           )}
 
           {activeTab === 'faces' && (
